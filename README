@@ -1,1 +1,5 @@
-This is a test code
+监控京东商品价格，当价格波动时发送微信提醒。
+
+1、运行DB.py建数据库
+
+2、运行main_monitor.py开始监控，注意main_monitor.py中第14行cookies = crawler.login_jd()，在需要要去掉注释运行下

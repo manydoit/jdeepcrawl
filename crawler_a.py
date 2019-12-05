@@ -13,7 +13,7 @@ import datetime
 import pickle
 import urllib.request
 import json
-
+from CONFIG import TIMEOUT_SLEEP_SEC
 
 class Crawler(object):
 
@@ -45,7 +45,7 @@ class Crawler(object):
 
     def login_jd(self):
         self.chrome.get('https://passport.jd.com/new/login.aspx')  # JD 登录页面
-        time.sleep(2)  # 等待加载
+        time.sleep(TIMEOUT_SLEEP_SEC)  # 等待加载
         self.chrome.find_element_by_css_selector('div.login-tab-r a').click()  # 切换登录按钮
         self.chrome.find_element_by_css_selector('input#loginname').send_keys('18080156698')  # 填写账号
         self.chrome.find_element_by_css_selector('input#nloginpwd').send_keys('hy822x17')  # 填写密码
@@ -95,7 +95,7 @@ class Crawler(object):
                 self.chrome.get(item_url)
             except TimeoutException as e:
                 logging.info('{0} failure: {1}'.format(e, item_url))
-                time.sleep(10)
+                time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
 
             # 复制id
@@ -176,7 +176,7 @@ class Crawler(object):
                 json_prom = json.loads(prom_res)
             except TimeoutException as e:
                 logging.info('{0} failure: {1}'.format(e, prom_url))
-                time.sleep(10)
+                time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
             if json_prom['prom'] and json_prom['prom']['pickOneTag']:
                 desc2 = []
@@ -224,7 +224,7 @@ class Crawler(object):
                 json_coupon = json.loads(coupon_res)
             except TimeoutException as e:
                 logging.info('{0} failure: {1}'.format(e, cupon_url))
-                time.sleep(10)
+                time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
             # 有没领取的，就领取
             if json_coupon is not None and 'skuConpons' in json_coupon:
@@ -291,7 +291,7 @@ class Crawler(object):
                 json_stock = json.loads(stock_res)
             except TimeoutException as e:
                 logging.info('{0} failure: {1}'.format(e, stock_url))
-                time.sleep(10)
+                time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
             if json_stock['stock']['StockState'] == 33:
                 item_raw_dict['status'] = "有货"
