@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     bot = Bot()
     my_friend = bot.friends().search('solo', sex=MALE)[0]
-    my_friend.send('小蒐开始工作!\n共{0}件商品,每{1}秒一轮,共{2}轮.\n{3}'.format(len(item_ids), CR_SLEEP_SEC, CR_ITERATIONS, datetime.datetime.now()))
+    my_friend.send('小蒐开始工作!\n目标商品:{0}个;\n监控次数:{1}轮;\n间隔时长:{2}秒\n{3}'.format(len(item_ids), CR_ITERATIONS, CR_SLEEP_SEC, datetime.datetime.now()))
 
     for i in range(CR_ITERATIONS):
         crawler.load_cookies()
@@ -44,10 +44,10 @@ if __name__ == '__main__':
             sql.add_one_monitor(item_raw)
             if item_raw['coupon_price'] < item_lowest_prices[j]:
                 # 发送破低价消息
-                my_friend.send('破最低价提示!\n原低价约{0:.2f}元;\n现低价约{1:.2f}元,{2}.\n{3}\n{4}\n{5}'.format(
+                my_friend.send('破最低价提示! {0}!\n原低价约{1:.2f}元;\n现低价约{2:.2f}元.\n{3}\n{4}\n{5}'.format(
+                    item_raw['status'],
                     item_lowest_prices[j],
                     item_raw['coupon_price'],
-                    item_raw['status'],
                     item_raw['url'],
                     item_raw['title'],
                     item_raw['update_time']))
@@ -57,10 +57,10 @@ if __name__ == '__main__':
                 sql.add_update_one_info(item_raw)
             else:
                 if item_raw['coupon_price'] < item_latest_prices[j]:
-                    my_friend.send('降价提示!\n上轮价约{0:.2f}元;\n现降为约{1:.2f}元,{2}.\n{3}\n{4}\n{5}'.format(
+                    my_friend.send('降价提示! {0}!\n上轮价约{1:.2f}元;\n现降为约{2:.2f}元,{2}.\n{3}\n{4}\n{5}'.format(
+                        item_raw['status'],
                         item_latest_prices[j],
                         item_raw['coupon_price'],
-                        item_raw['status'],
                         item_raw['url'],
                         item_raw['title'],
                         item_raw['update_time']))

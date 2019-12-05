@@ -1,4 +1,4 @@
 
 DB_STRING = "sqlite:///db_jdc.db"
 CR_ITERATIONS = 10000
-CR_SLEEP_SEC = 1800
+CR_SLEEP_SEC = 900

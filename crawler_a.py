@@ -197,7 +197,7 @@ class Crawler(object):
             for i in range(len(mans)):
                 par = float(jians[i])
                 quo = float(mans[i])
-                pp = basic_price - par if basic_price > quo else basic_price * (quo - par) / par
+                pp = basic_price - par if basic_price > quo else basic_price * (quo - par) / quo
                 pps.append(pp)
                 pmq.append(quo)
                 pmp.append(par)
