@@ -14,6 +14,7 @@ import pickle
 import urllib.request
 import json
 
+
 class Crawler(object):
 
     def __init__(self, proxy=None):
@@ -71,16 +72,22 @@ class Crawler(object):
                          "title": None,
                          "subtitle": None,
                          "status": None,
+                         "url": None,
                          "show_price": None,
                          "plus_price": None,
                          "fans_price": None,
-                         "esti_price": None,
-                         "esti_couponStyle": None,
-                         "esti_discQuota": None,
-                         "esti_discMax": None,
                          "promotion_info": None,
-                         "update_time": None,}
+                         "prom_price": None,
+                         "prom_discQuota": None,
+                         "prom_discPar": None,
+                         "coupon_price": None,
+                         "coupon_style": None,
+                         "coupon_discQuota": None,
+                         "coupon_discPar": None,
+                         "coupon_discMax": None,
+                         "update_time": None}
 
+        ###############################  Phase1 提取页面基本信息  ###############################
         item_url = 'https://item.jd.com/' + item_id + '.html'
         crawling_phase1 = True
         while(crawling_phase1):
@@ -105,12 +112,12 @@ class Crawler(object):
             # 生成url
             item_raw_dict['url'] = 'https://item.jd.com/{0}.html'.format(item_raw_dict['id'])
 
-            # 提取状态
+            # 提取状态(是否下架)
             try:
                 status = self.chrome.find_element_by_xpath("//*[@class='itemover-tip']").text
-                item_raw_dict['status'] = status
+                item_raw_dict['status'] = "下架"
             except NoSuchElementException as e:
-                item_raw_dict['status'] = "normal"
+                item_raw_dict['status'] = None
 
             # 提取show_price,无该元素，则直接保留为None
             try:
@@ -158,7 +165,7 @@ class Crawler(object):
             if item_raw_dict['fans_price'] is not None:
                 basic_price = min(basic_price, item_raw_dict['fans_price'])
 
-        # 提取促销信息,
+        ###############################  Phase2 提取促销信息  ###############################
         crawling_phase2 = True
         while (crawling_phase2):
             # 提取promotion信息
@@ -176,6 +183,8 @@ class Crawler(object):
                 for item in json_prom['prom']['pickOneTag']:
                     desc2.append(item['content'])
                 item_raw_dict['promotion_info'] = ';'.join(desc2)
+            else:
+                item_raw_dict['promotion_info'] = ''
             crawling_phase2 = False
 
         # 从促销信息计算prom_price和相关信息
@@ -204,7 +213,7 @@ class Crawler(object):
         # 修改basic_price为prom_price(注意 促销信息默认可以叠加)
         basic_price = item_raw_dict['prom_price']
 
-        # 提取优惠券信息,在basic_price基础上计算coupon_price
+        ###############################  Phase3 提取优惠券信息  ###############################
         json_coupon = None
         crawling_phase3 = True
         while (crawling_phase3):
@@ -272,24 +281,43 @@ class Crawler(object):
             item_raw_dict['coupon_discPar'] = None
             item_raw_dict['coupon_discMax'] = None
 
-
-
+        ###############################  Phase4 提取库存信息  ###############################
+        crawling_phase4 = True
+        while (crawling_phase4):
+            stock_url = "https://c0.3.cn/stock?skuId={0}&area=22_1930_50945_52158&venderId={1}&buyNum=1&cat={2}".format(item_skuid,item_venderId,item_cat_format)
+            try:
+                self.chrome.get(stock_url)
+                stock_res = self.chrome.find_element_by_tag_name('body').text
+                json_stock = json.loads(stock_res)
+            except TimeoutException as e:
+                logging.info('{0} failure: {1}'.format(e, stock_url))
+                time.sleep(10)
+                continue
+            if json_stock['stock']['StockState'] == 33:
+                item_raw_dict['status'] = "有货"
+            elif json_stock['stock']['StockState'] == 34:
+                item_raw_dict['status'] = "无货"
+            crawling_phase4 = False
 
         logging.info('Crawl SUCCESS: {}'.format(item_raw_dict))
         return item_raw_dict
 
 
 if __name__ == '__main__':
+    ############# 下面代码作废 ##################
     logging.basicConfig(level=logging.INFO)
     crawler = Crawler()
     #cookies = crawler.login_jd()
     sql = Sql()
-    items = ['8683310', '4624351', '1250262', '1120715', '100003671718']
+    item_ids = ['8683310', '4624351', '1250262', '1120715', '100003671718']
+    item_lowest_prices = [9999999 for i in range(len(item_ids))]
     for i in range(100):
         crawler.load_cookies()
-        for j in range(len(items)):
-            item_raw = crawler.get_jd_rawitem(items[j])
+        for j in range(len(item_ids)):
+            item_raw = crawler.get_jd_rawitem(item_ids[j])
             sql.add_one_monitor(item_raw)
+            if item_raw['coupon_price'] < item_lowest_prices[j]:
+                item_lowest_prices[j] = item_raw['coupon_price']
         logging.info('Waiting 300s for starting {0} iteration ...'.format(i+2))
         time.sleep(1800)
 
