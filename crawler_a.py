@@ -13,7 +13,7 @@ import datetime
 import pickle
 import urllib.request
 import json
-from CONFIG import TIMEOUT_SLEEP_SEC
+from CONFIG import TIMEOUT_SLEEP_SEC, JDLOGIN_USERNAME, JDLOGIN_PASSWORD
 
 class Crawler(object):
 
@@ -28,8 +28,8 @@ class Crawler(object):
         chrome_options.add_argument('--ignore-ssl-errors')
         chrome_options.add_argument("--dns-prefetch-disable")
         # 禁用图片加载
-        #prefs = {"profile.managed_default_content_settings.images": 2}
-        #chrome_options.add_experimental_option("prefs", prefs)
+        prefs = {"profile.managed_default_content_settings.images": 2}
+        chrome_options.add_experimental_option("prefs", prefs)
         if proxy:
             proxy_address = proxy['https']
             chrome_options.add_argument('--proxy-server=%s' % proxy_address)
@@ -47,8 +47,8 @@ class Crawler(object):
         self.chrome.get('https://passport.jd.com/new/login.aspx')  # JD 登录页面
         time.sleep(TIMEOUT_SLEEP_SEC)  # 等待加载
         self.chrome.find_element_by_css_selector('div.login-tab-r a').click()  # 切换登录按钮
-        self.chrome.find_element_by_css_selector('input#loginname').send_keys('18080156698')  # 填写账号
-        self.chrome.find_element_by_css_selector('input#nloginpwd').send_keys('hy822x17')  # 填写密码
+        self.chrome.find_element_by_css_selector('input#loginname').send_keys(JDLOGIN_USERNAME)  # 填写账号
+        self.chrome.find_element_by_css_selector('input#nloginpwd').send_keys(JDLOGIN_PASSWORD)  # 填写密码
         self.chrome.find_element_by_css_selector('a#loginsubmit').click()  # 点击登录按钮
         time.sleep(10)
         cookies = self.chrome.get_cookies()
@@ -66,6 +66,22 @@ class Crawler(object):
                     if 'expiry' in c:
                         del c['expiry']
                     self.chrome.add_cookie(c)
+
+    def check_login(self):
+        while (True):
+            login_check_url = "https://passport.jd.com/loginservice.aspx?callback=jQuery859969&method=Login&_=1575601890704"
+            try:
+                self.chrome.get(login_check_url)
+                login_check_res = self.chrome.find_element_by_tag_name('body').text
+                if login_check_res.find(JDLOGIN_USERNAME) < 0:
+                    return False
+                else:
+                    return True
+            except TimeoutException as e:
+                logging.info('{0} failure: {1}'.format(e, login_check_url))
+                time.sleep(TIMEOUT_SLEEP_SEC)
+                continue
+
 
     def get_jd_rawitem(self, item_id, cookies=None):
         item_raw_dict = {"id": None,
@@ -86,6 +102,9 @@ class Crawler(object):
                          "coupon_discPar": None,
                          "coupon_discMax": None,
                          "update_time": None}
+
+
+
 
         ###############################  Phase1 提取页面基本信息  ###############################
         item_url = 'https://item.jd.com/' + item_id + '.html'

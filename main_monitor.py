@@ -37,12 +37,14 @@ if __name__ == '__main__':
 
     for i in range(CR_ITERATIONS):
         crawler.load_cookies()
+        if not crawler.check_login():
+            my_friend.send('京东登陆失败! {0}'.format(datetime.datetime.now()))
         for j in range(len(item_ids)):
             time.sleep(1)
             item_raw = crawler.get_jd_rawitem(item_ids[j])
             # 加入一条监控数据库记录
             sql.add_one_monitor(item_raw)
-            if item_raw['coupon_price'] < item_lowest_prices[j]:
+            if item_lowest_prices[j] != MAX_PRICE and item_raw['coupon_price'] < item_lowest_prices[j]:
                 # 发送破低价消息
                 my_friend.send('破最低价提示! {0}!\n原低价约{1:.2f}元;\n现低价约{2:.2f}元.\n{3}\n{4}\n{5}'.format(
                     item_raw['status'],
@@ -56,7 +58,7 @@ if __name__ == '__main__':
                 # 更新商品信息数据库记录
                 sql.add_update_one_info(item_raw)
             else:
-                if item_raw['coupon_price'] < item_latest_prices[j]:
+                if item_latest_prices[j] != MAX_PRICE and item_raw['coupon_price'] < item_latest_prices[j]:
                     my_friend.send('降价提示! {0}!\n上轮价约{1:.2f}元;\n现降为约{2:.2f}元,{2}.\n{3}\n{4}\n{5}'.format(
                         item_raw['status'],
                         item_latest_prices[j],
