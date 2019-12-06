@@ -5,13 +5,12 @@ import time, datetime
 import json
 from CONFIG import CR_ITERATIONS, CR_SLEEP_SEC
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+def main():
     MAX_PRICE = 9999999.00
     crawler = Crawler()
 
     # 需要时才运行一次
-    #cookies = crawler.login_jd()
+    # cookies = crawler.login_jd()
 
     sql = Sql()
 
@@ -30,15 +29,16 @@ if __name__ == '__main__':
             item_lowest_prices.append(MAX_PRICE)
             item_latest_prices.append(MAX_PRICE)
 
-
     bot = Bot()
     my_friend = bot.friends().search('solo', sex=MALE)[0]
-    my_friend.send('小蒐开始工作!\n目标商品:{0}个;\n监控次数:{1}轮;\n间隔时长:{2}秒\n{3}'.format(len(item_ids), CR_ITERATIONS, CR_SLEEP_SEC, datetime.datetime.now()))
+    my_friend.send('小蒐开始工作!\n目标商品:{0}个;\n监控次数:{1}轮;\n间隔时长:{2}秒\n{3}'.format(len(item_ids), CR_ITERATIONS, CR_SLEEP_SEC,
+                                                                            datetime.datetime.now()))
 
     for i in range(CR_ITERATIONS):
         crawler.load_cookies()
         if not crawler.check_login():
             my_friend.send('京东登陆失败! {0}'.format(datetime.datetime.now()))
+            return False
         for j in range(len(item_ids)):
             time.sleep(1)
             item_raw = crawler.get_jd_rawitem(item_ids[j])
@@ -67,5 +67,9 @@ if __name__ == '__main__':
                         item_raw['title'],
                         item_raw['update_time']))
             item_latest_prices[j] = item_raw['coupon_price']
-        logging.info('Waiting {0}s to start {1} iteration ...'.format(CR_SLEEP_SEC, i+2))
+        logging.info('Waiting {0}s to start {1} iteration ...'.format(CR_SLEEP_SEC, i + 2))
         time.sleep(CR_SLEEP_SEC)
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    main()

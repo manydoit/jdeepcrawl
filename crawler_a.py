@@ -249,11 +249,15 @@ class Crawler(object):
             if json_coupon is not None and 'skuConpons' in json_coupon:
                 for ac in json_coupon['skuConpons']:
                     get_cupon_url = "https://cd.jd.com/coupon/active?skuId={0}&cat={1}&venderId={2}&roleId={3}&key={4}&couponBatchId=&answer=&content=".format(item_skuid,item_cat_format,item_venderId,ac['roleId'],ac['key'])
-                    self.chrome.get(get_cupon_url)
+                    try:
+                        self.chrome.get(get_cupon_url)
+                    except TimeoutException as e:
+                        logging.info('{0} failure: {1}'.format(e, get_cupon_url))
+                        time.sleep(TIMEOUT_SLEEP_SEC)
+                        continue
                 # 这里需要等待2分钟左右
                 logging.info('Waiting 120s for receiving coupon ...')
                 time.sleep(120)
-                continue
             crawling_phase3 = False
 
         # 写入时间
@@ -268,7 +272,7 @@ class Crawler(object):
             emp = []  # coupon_discPar 的候选者列表
             dum = []  # coupon_discMax 的候选者列表
             for cc in json_coupon['currentSkuConpons']:
-                if time_now > datetime.datetime.strptime(cc['beginTime'], '%Y-%m-%d') and time_now < datetime.datetime.strptime(cc['endTime'], '%Y-%m-%d'):
+                if datetime.datetime.strptime(cc['beginTime'][0:10], '%Y-%m-%d') < time_now < datetime.datetime.strptime(cc['endTime'][0:10], '%Y-%m-%d'):
                     # 满quota减parValue
                     if cc['couponStyle'] == 0 or cc['couponStyle'] == 1:
                         esti = basic_price-cc['parValue'] if basic_price > cc['quota'] else basic_price * (cc['quota'] - cc['parValue']) / cc['quota']
