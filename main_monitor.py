@@ -33,7 +33,7 @@ def main():
     my_friend = bot.friends().search('solo', sex=MALE)[0]
     my_friend.send('小蒐开始工作!\n目标商品:{0}个;\n监控次数:{1}轮;\n间隔时长:{2}秒\n{3}'.format(len(item_ids), CR_ITERATIONS, CR_SLEEP_SEC,
                                                                             datetime.datetime.now()))
-
+    n_error_time = 0
     for i in range(CR_ITERATIONS):
         crawler.load_cookies()
         if not crawler.check_login():
@@ -43,8 +43,12 @@ def main():
             time.sleep(1)
             item_raw = crawler.get_jd_rawitem(item_ids[j])
             # 如果爬取的该条数据不完整
-            if not item_raw['coupon_price']:
+            if not item_raw or not item_raw['coupon_price']:
+                n_error_time += 1
                 continue
+            if n_error_time > 10:
+                my_friend.send('小蒐提示连续读取信息失败后退出! \n{0}'.format(datetime.datetime.now()))
+                return False
             # 加入一条监控数据库记录
             sql.add_one_monitor(item_raw)
 

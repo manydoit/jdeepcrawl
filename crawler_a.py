@@ -125,14 +125,14 @@ class Crawler(object):
                 name = self.chrome.find_element_by_xpath("//*[@class='sku-name']").text
                 item_raw_dict['title'] = name
             except NoSuchElementException as e:
-                item_raw_dict['title'] = None
+                return None
 
             # 提取副标题
             try:
                 subtitle = self.chrome.find_element_by_xpath("//*[@id='p-ad']").text
                 item_raw_dict['subtitle'] = subtitle
             except NoSuchElementException as e:
-                item_raw_dict['subtitle'] = None
+                return None
 
             # 生成url
             item_raw_dict['url'] = 'https://item.jd.com/{0}.html'.format(item_raw_dict['id'])
@@ -244,6 +244,7 @@ class Crawler(object):
         ###############################  Phase3 提取优惠券信息  ###############################
         json_coupon = None
         crawling_phase3 = True
+        get_coupon_success = False
         while (crawling_phase3):
             cupon_url ="https://cd.jd.com/coupon/service?skuId={0}&cat={1}&venderId={2}".format(item_skuid, item_cat_format, item_venderId)
             try:
@@ -262,14 +263,16 @@ class Crawler(object):
                         self.chrome.get(get_cupon_url)
                         get_coupon_res = self.chrome.find_element_by_tag_name('body').text
                         json_get_coupon = json.loads(get_coupon_res)
-                        #if json_get_coupon['prom']
+                        if json_get_coupon['resultCode'] == 999:
+                            get_coupon_success = True
                     except TimeoutException as e:
                         logging.info('{0} failure: {1}'.format(e, get_cupon_url))
                         time.sleep(TIMEOUT_SLEEP_SEC)
                         continue
                 # 这里需要等待2分钟左右
-                logging.info('Waiting 120s for receiving coupon ...')
-                time.sleep(120)
+                if get_coupon_success:
+                    logging.info('Waiting 120s for receiving coupon ...')
+                    time.sleep(120)
             crawling_phase3 = False
 
         # 写入时间
