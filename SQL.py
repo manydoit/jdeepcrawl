@@ -14,6 +14,10 @@ class Sql(object):
     DBSession = sessionmaker(bind=engine)
     session = DBSession()
 
+    def read_one_monitor(self, iid):
+        read_item = self.session.query(JDItemMonitor).filter_by(item_id=iid).all()
+        return read_item
+
     def read_one_info(self, iid):
         read_item = self.session.query(JDItemInforms).filter_by(item_id=iid).all()
         return read_item[0] if read_item else None

@@ -121,12 +121,18 @@ class Crawler(object):
             item_raw_dict['id'] = item_id
 
             # 提取名称
-            name = self.chrome.find_element_by_xpath("//*[@class='sku-name']").text
-            item_raw_dict['title'] = name
+            try:
+                name = self.chrome.find_element_by_xpath("//*[@class='sku-name']").text
+                item_raw_dict['title'] = name
+            except NoSuchElementException as e:
+                item_raw_dict['title'] = None
 
             # 提取副标题
-            subtitle = self.chrome.find_element_by_xpath("//*[@id='p-ad']").text
-            item_raw_dict['subtitle'] = subtitle
+            try:
+                subtitle = self.chrome.find_element_by_xpath("//*[@id='p-ad']").text
+                item_raw_dict['subtitle'] = subtitle
+            except NoSuchElementException as e:
+                item_raw_dict['subtitle'] = None
 
             # 生成url
             item_raw_dict['url'] = 'https://item.jd.com/{0}.html'.format(item_raw_dict['id'])
@@ -143,7 +149,8 @@ class Crawler(object):
                 show_price = self.chrome.find_element_by_xpath("//*[@class='p-price']").text
                 if show_price:
                     price_xpath = re.findall(r'-?\d+\.?\d*e?-?\d*?', show_price)
-                    item_raw_dict['show_price'] = float(price_xpath[0])  # 提取浮点数
+                    if len(price_xpath) > 0:
+                        item_raw_dict['show_price'] = float(price_xpath[0])  # 提取浮点数
             except NoSuchElementException as e:
                 item_raw_dict['show_price'] = None
 
@@ -152,7 +159,8 @@ class Crawler(object):
                 plus_price = self.chrome.find_element_by_xpath("//*[@class='p-price-plus']").text
                 if plus_price:
                     plus_price_xpath = re.findall(r'-?\d+\.?\d*e?-?\d*?', plus_price)
-                    item_raw_dict['plus_price'] = float(plus_price_xpath[0])  # 提取浮点数
+                    if len(plus_price_xpath) > 0:
+                        item_raw_dict['plus_price'] = float(plus_price_xpath[0])  # 提取浮点数
             except NoSuchElementException as e:
                 item_raw_dict['plus_price'] = None
 
@@ -161,7 +169,8 @@ class Crawler(object):
                 fans_price = self.chrome.find_element_by_xpath("//*[@class='p-price-fans']").text
                 if fans_price:
                     fans_price_xpath = re.findall(r'-?\d+\.?\d*e?-?\d*?', fans_price)
-                    item_raw_dict['fans_price'] = float(fans_price_xpath[0])  # 提取浮点数
+                    if len(fans_price_xpath) > 0:
+                        item_raw_dict['fans_price'] = float(fans_price_xpath[0])  # 提取浮点数
             except NoSuchElementException as e:
                 item_raw_dict['fans_price'] = None
 
@@ -251,6 +260,9 @@ class Crawler(object):
                     get_cupon_url = "https://cd.jd.com/coupon/active?skuId={0}&cat={1}&venderId={2}&roleId={3}&key={4}&couponBatchId=&answer=&content=".format(item_skuid,item_cat_format,item_venderId,ac['roleId'],ac['key'])
                     try:
                         self.chrome.get(get_cupon_url)
+                        get_coupon_res = self.chrome.find_element_by_tag_name('body').text
+                        json_get_coupon = json.loads(get_coupon_res)
+                        #if json_get_coupon['prom']
                     except TimeoutException as e:
                         logging.info('{0} failure: {1}'.format(e, get_cupon_url))
                         time.sleep(TIMEOUT_SLEEP_SEC)
@@ -264,32 +276,32 @@ class Crawler(object):
         time_now = datetime.datetime.now()
         item_raw_dict['update_time'] = time_now
 
+        eps = []  # 每张券的估计价格列表
+        ems = []  # coupon_style 的候选者列表
+        emq = []  # coupon_discQuota 的候选者列表
+        emp = []  # coupon_discPar 的候选者列表
+        dum = []  # coupon_discMax 的候选者列表
         # 计算每一张可用券的coupon_price,并记录相关信息
         if json_coupon and 'currentSkuConpons' in json_coupon:
-            eps = []  # 每张券的估计价格列表
-            ems = []  # coupon_style 的候选者列表
-            emq = []  # coupon_discQuota 的候选者列表
-            emp = []  # coupon_discPar 的候选者列表
-            dum = []  # coupon_discMax 的候选者列表
             for cc in json_coupon['currentSkuConpons']:
-                if datetime.datetime.strptime(cc['beginTime'][0:10], '%Y-%m-%d') < time_now < datetime.datetime.strptime(cc['endTime'][0:10], '%Y-%m-%d'):
-                    # 满quota减parValue
-                    if cc['couponStyle'] == 0 or cc['couponStyle'] == 1:
-                        esti = basic_price-cc['parValue'] if basic_price > cc['quota'] else basic_price * (cc['quota'] - cc['parValue']) / cc['quota']
-                        eps.append(esti)
-                        ems.append(cc['couponStyle'])
-                        emq.append(cc['quota'])
-                        emp.append(cc['parValue'])
-                        dum.append(None)
-                    # 满quota打discount折,最多减highCount(注意这里实际计算方法)
-                    if cc['couponStyle'] == 3:
-                        esti = basic_price - cc['parValue'] if basic_price > cc['quota'] else basic_price * (cc['quota'] - cc['parValue']) / cc['quota']
-                        esti = basic_price - cc['highCount'] if basic_price - esti > cc['highCount'] else esti
-                        eps.append(esti)
-                        ems.append(cc['couponStyle'])
-                        emq.append(cc['quota'])
-                        emp.append(cc['parValue'])
-                        dum.append(cc['highCount'])
+                # 满quota减parValue
+                if cc['couponStyle'] == 0 or cc['couponStyle'] == 1:
+                    esti = basic_price-cc['parValue'] if basic_price > cc['quota'] else basic_price * (cc['quota'] - cc['parValue']) / cc['quota']
+                    eps.append(esti)
+                    ems.append(cc['couponStyle'])
+                    emq.append(cc['quota'])
+                    emp.append(cc['parValue'])
+                    dum.append(None)
+                # 满quota打discount折,最多减highCount(注意这里实际计算方法)
+                if cc['couponStyle'] == 3:
+                    esti = basic_price - cc['parValue'] if basic_price > cc['quota'] else basic_price * (cc['quota'] - cc['parValue']) / cc['quota']
+                    esti = basic_price - cc['highCount'] if basic_price - esti > cc['highCount'] else esti
+                    eps.append(esti)
+                    ems.append(cc['couponStyle'])
+                    emq.append(cc['quota'])
+                    emp.append(cc['parValue'])
+                    dum.append(cc['highCount'])
+        if len(eps) > 0:
             # 比较得到最优惠的
             item_raw_dict['coupon_price'] = min(eps)
             midx = eps.index(item_raw_dict['coupon_price'])
