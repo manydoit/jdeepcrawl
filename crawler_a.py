@@ -140,7 +140,7 @@ class Crawler(object):
             # 提取状态(是否下架)
             try:
                 status = self.chrome.find_element_by_xpath("//*[@class='itemover-tip']").text
-                item_raw_dict['status'] = "下架"
+                item_raw_dict['status'] = "stock_over"
             except NoSuchElementException as e:
                 item_raw_dict['status'] = None
 
@@ -206,6 +206,10 @@ class Crawler(object):
                 logging.info('{0} failure: {1}'.format(e, prom_url))
                 time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
+            except decoder.JSONDecodeError as e:
+                logging.info('{0} failure: {1}'.format(e, prom_url))
+                time.sleep(TIMEOUT_SLEEP_SEC)
+                continue
             if json_prom['prom'] and json_prom['prom']['pickOneTag']:
                 desc2 = []
                 for item in json_prom['prom']['pickOneTag']:
@@ -244,14 +248,18 @@ class Crawler(object):
         ###############################  Phase3 提取优惠券信息  ###############################
         json_coupon = None
         crawling_phase3 = True
-        get_coupon_success = False
         while (crawling_phase3):
+            waiting_coupon_arrive = False
             cupon_url ="https://cd.jd.com/coupon/service?skuId={0}&cat={1}&venderId={2}".format(item_skuid, item_cat_format, item_venderId)
             try:
                 self.chrome.get(cupon_url)
                 coupon_res = self.chrome.find_element_by_tag_name('body').text
                 json_coupon = json.loads(coupon_res)
             except TimeoutException as e:
+                logging.info('{0} failure: {1}'.format(e, cupon_url))
+                time.sleep(TIMEOUT_SLEEP_SEC)
+                continue
+            except decoder.JSONDecodeError as e:
                 logging.info('{0} failure: {1}'.format(e, cupon_url))
                 time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
@@ -264,16 +272,21 @@ class Crawler(object):
                         get_coupon_res = self.chrome.find_element_by_tag_name('body').text
                         json_get_coupon = json.loads(get_coupon_res)
                         if json_get_coupon['resultCode'] == 999:
-                            get_coupon_success = True
+                            waiting_coupon_arrive = True
                     except TimeoutException as e:
                         logging.info('{0} failure: {1}'.format(e, get_cupon_url))
                         time.sleep(TIMEOUT_SLEEP_SEC)
                         continue
                 # 这里需要等待2分钟左右
-                if get_coupon_success:
-                    logging.info('Waiting 120s for receiving coupon ...')
+                if waiting_coupon_arrive:
+                    logging.info('Waiting 120s for coupons ...')
                     time.sleep(120)
-            crawling_phase3 = False
+                    # 因为领取了优惠券,重新读取json_coupon
+                    crawling_phase3 = True
+                else:
+                    crawling_phase3 = False
+            else:
+                crawling_phase3 = False
 
         # 写入时间
         time_now = datetime.datetime.now()
@@ -331,10 +344,14 @@ class Crawler(object):
                 logging.info('{0} failure: {1}'.format(e, stock_url))
                 time.sleep(TIMEOUT_SLEEP_SEC)
                 continue
+            except decoder.JSONDecodeError as e:
+                logging.info('{0} failure: {1}'.format(e, stock_url))
+                time.sleep(TIMEOUT_SLEEP_SEC)
+                continue
             if json_stock['stock']['StockState'] == 33:
-                item_raw_dict['status'] = "有货"
+                item_raw_dict['status'] = "stock_in"
             elif json_stock['stock']['StockState'] == 34:
-                item_raw_dict['status'] = "无货"
+                item_raw_dict['status'] = "stock_out"
             crawling_phase4 = False
 
         logging.info('Crawl SUCCESS: {}'.format(item_raw_dict))
